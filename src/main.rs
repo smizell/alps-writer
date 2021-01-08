@@ -5,7 +5,8 @@ use serde_yaml;
 use std::collections::HashMap;
 use std::error::Error;
 use std::format;
-use std::fs;
+use std::fs::{self, DirEntry};
+use std::io;
 use std::path::Path;
 // use walkdir::WalkDir;
 
@@ -20,32 +21,21 @@ fn walk_profile(profile_dir: &Path) -> Result<Alps, &str> {
     if !index.exists() {
         return Err("No index found in profile directory");
     }
-    let alps = Alps::from_file(&index).unwrap();
-    return Ok(alps);
-}
+    let mut alps = Alps::from_file(&index).unwrap();
 
-fn walk_dir(path: &Path) {
-    // Get the list of directories
-    for entry in path.read_dir().expect("read_dir failed") {
-        if let Ok(entry) = entry {
-            if entry.path().is_file() && entry.file_name() == "index.md" {
-                let data = fs::read_to_string(entry.path()).expect("Unable to read index.md");
-                let parts: Vec<&str> = data.split("---").collect();
-                if parts.len() < 3 {
-                    println!("Frontmatter not correct in {:?}", entry.path());
-                    continue;
-                }
-                let frontmatter: Alps = serde_yaml::from_str(&parts[1]).unwrap();
-                let body = markdown_to_html(&parts[2], &ComrakOptions::default());
-                println!("{:?}", frontmatter);
-            }
+    for entry in profile_dir.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
 
-            if entry.path().is_dir() {
-                println!("{:?}", entry.path());
-                walk_dir(&entry.path());
-            }
+        if !path.is_dir() && path.file_name().unwrap() != "index.md" {
+            println!("{:?}", entry.path());
+            let desc = Descriptor::from_file(&entry.path()).unwrap();
+            alps.add_descriptor(desc);
+            continue;
         }
     }
+
+    Ok(alps)
 }
 
 fn read_markdown_file<T>(path: &Path) -> Result<T, &'static str>
@@ -54,12 +44,20 @@ where
 {
     let data = fs::read_to_string(path).unwrap();
     let parts: Vec<&str> = data.split("---").collect();
+
+    // TODO: Make it work with 1 length
     if parts.len() < 3 {
         return Err("Can't format error");
     }
-    let mut result: T = serde_yaml::from_str(&parts[1]).unwrap();
-    let value = markdown_to_html(&parts[2], &ComrakOptions::default());
-    result.add_markdown_doc(value);
+
+    let frontmatter = if parts[1].trim().is_empty() {
+        String::from("{}")
+    } else {
+        parts[1].to_string()
+    };
+
+    let mut result: T = serde_yaml::from_str(&frontmatter).unwrap();
+    result.add_markdown_doc(parts[2].to_string());
     return Ok(result);
 }
 
@@ -67,9 +65,18 @@ trait WithDoc {
     fn add_markdown_doc<'a>(self: &'a mut Self, value: String) -> &'a mut Self;
 }
 
+fn default_descriptor() -> Vec<Descriptor> {
+    vec![]
+}
+
+fn default_descriptor_type() -> DescriptorType {
+    DescriptorType::Semantic
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Alps {
-    descriptor: Option<Vec<Descriptor>>,
+    #[serde(default = "default_descriptor")]
+    descriptor: Vec<Descriptor>,
     doc: Option<Doc>,
     link: Option<Vec<Link>>,
 }
@@ -78,6 +85,11 @@ impl Alps {
     fn from_file(path: &Path) -> Result<Alps, &'static str> {
         let alps = read_markdown_file::<Alps>(path).unwrap();
         return Ok(alps);
+    }
+
+    fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Alps {
+        self.descriptor.push(descriptor);
+        self
     }
 }
 
@@ -103,13 +115,35 @@ struct Descriptor {
     name: Option<String>,
     rel: Option<String>,
     rt: Option<String>,
-    link: Vec<Link>,
+    link: Option<Vec<Link>>,
+    doc: Option<Doc>,
 
     #[serde(rename(serialize = "type"))]
     #[serde(rename(deserialize = "type"))]
+    #[serde(default = "default_descriptor_type")]
     descriptor_type: DescriptorType,
 
+    #[serde(default = "default_descriptor")]
     descriptor: Vec<Descriptor>,
+}
+
+impl Descriptor {
+    fn from_file(path: &Path) -> Result<Descriptor, &'static str> {
+        let mut descriptor = read_markdown_file::<Descriptor>(path).unwrap();
+        let desc_id = path.file_stem().unwrap().to_str().unwrap();
+        descriptor.id = Some(desc_id.to_string());
+        Ok(descriptor)
+    }
+}
+
+impl WithDoc for Descriptor {
+    fn add_markdown_doc<'a>(&'a mut self, value: String) -> &'a mut Descriptor {
+        self.doc = Some(Doc {
+            format: String::from("markdown"),
+            value,
+        });
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
