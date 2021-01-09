@@ -81,7 +81,7 @@ where
     };
 
     let mut result: T = serde_yaml::from_str(&frontmatter).unwrap();
-    result.add_doc(String::from("markdown"), parts[2].to_string());
+    result.add_doc(String::from("markdown"), parts[2].trim().to_string());
     return Ok(result);
 }
 
