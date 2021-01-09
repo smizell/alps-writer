@@ -1,41 +1,53 @@
-extern crate comrak;
-use comrak::{markdown_to_html, ComrakOptions};
-use serde::{de, Deserialize, Serialize};
-use serde_yaml;
-use std::collections::HashMap;
-use std::error::Error;
-use std::format;
-use std::fs::{self, DirEntry};
-use std::io;
-use std::path::Path;
+// extern crate comrak;
+// use comrak::{markdown_to_html, ComrakOptions};
+// use std::collections::HashMap;
+// use std::error::Error;
+// use std::format;
+// use std::io;
 // use walkdir::WalkDir;
+use serde::{de, Deserialize, Serialize};
+use serde_json;
+use serde_yaml;
+use std::fs;
+use std::path::Path;
 
 fn main() {
     let profile_dir = Path::new("example/profile");
-    let alps = walk_profile(&profile_dir).unwrap();
-    println!("{:?}", alps);
+    let alps = walk_profile::<Alps>(&profile_dir).unwrap();
+    let alps_document = AlpsDocument { alps };
+    let s = serde_json::to_string_pretty(&alps_document).unwrap();
+    println!("{}", s);
 }
 
-fn walk_profile(profile_dir: &Path) -> Result<Alps, &str> {
+fn walk_profile<T>(profile_dir: &Path) -> Result<T, &str>
+where
+    T: FromFile + WithDescriptor,
+{
     let index = profile_dir.join("index.md");
     if !index.exists() {
         return Err("No index found in profile directory");
     }
-    let mut alps = Alps::from_file(&index).unwrap();
+    let mut main = T::from_file(&index).unwrap();
 
     for entry in profile_dir.read_dir().unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
 
-        if !path.is_dir() && path.file_name().unwrap() != "index.md" {
-            println!("{:?}", entry.path());
-            let desc = Descriptor::from_file(&entry.path()).unwrap();
-            alps.add_descriptor(desc);
+        let descriptor = if !path.is_dir() && path.file_name().unwrap() != "index.md" {
+            // Local .md files
+            // We processed index.md above so we can skip it
+            Descriptor::from_file(&entry.path()).unwrap()
+        } else if path.is_dir() {
+            // Handles folders that are treated like Descriptors
+            walk_profile::<Descriptor>(&path).unwrap()
+        } else {
             continue;
-        }
+        };
+
+        main.add_descriptor(descriptor);
     }
 
-    Ok(alps)
+    Ok(main)
 }
 
 fn read_markdown_file<T>(path: &Path) -> Result<T, &'static str>
@@ -57,12 +69,22 @@ where
     };
 
     let mut result: T = serde_yaml::from_str(&frontmatter).unwrap();
-    result.add_markdown_doc(parts[2].to_string());
+    result.add_doc(String::from("markdown"), parts[2].to_string());
     return Ok(result);
 }
 
 trait WithDoc {
-    fn add_markdown_doc<'a>(self: &'a mut Self, value: String) -> &'a mut Self;
+    fn add_doc<'a>(self: &'a mut Self, format: String, value: String) -> &'a mut Self;
+}
+
+trait FromFile {
+    fn from_file(path: &Path) -> Result<Self, &'static str>
+    where
+        Self: Sized;
+}
+
+trait WithDescriptor {
+    fn add_descriptor<'a>(self: &'a mut Self, descriptor: Descriptor) -> &'a mut Self;
 }
 
 fn default_descriptor() -> Vec<Descriptor> {
@@ -74,19 +96,40 @@ fn default_descriptor_type() -> DescriptorType {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
+struct AlpsDocument {
+    alps: Alps,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 struct Alps {
     #[serde(default = "default_descriptor")]
     descriptor: Vec<Descriptor>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     doc: Option<Doc>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     link: Option<Vec<Link>>,
 }
 
-impl Alps {
+impl Default for Alps {
+    fn default() -> Alps {
+        Alps {
+            descriptor: vec![],
+            doc: None,
+            link: None,
+        }
+    }
+}
+
+impl FromFile for Alps {
     fn from_file(path: &Path) -> Result<Alps, &'static str> {
         let alps = read_markdown_file::<Alps>(path).unwrap();
         return Ok(alps);
     }
+}
 
+impl WithDescriptor for Alps {
     fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Alps {
         self.descriptor.push(descriptor);
         self
@@ -94,11 +137,8 @@ impl Alps {
 }
 
 impl WithDoc for Alps {
-    fn add_markdown_doc<'a>(&'a mut self, value: String) -> &'a mut Alps {
-        self.doc = Some(Doc {
-            format: String::from("markdown"),
-            value,
-        });
+    fn add_doc<'a>(&'a mut self, format: String, value: String) -> &'a mut Alps {
+        self.doc = Some(Doc { format, value });
         self
     }
 }
@@ -111,11 +151,17 @@ struct Link {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct Descriptor {
+    #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     rel: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     rt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     link: Option<Vec<Link>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     doc: Option<Doc>,
 
     #[serde(rename(serialize = "type"))]
@@ -127,7 +173,7 @@ struct Descriptor {
     descriptor: Vec<Descriptor>,
 }
 
-impl Descriptor {
+impl FromFile for Descriptor {
     fn from_file(path: &Path) -> Result<Descriptor, &'static str> {
         let mut descriptor = read_markdown_file::<Descriptor>(path).unwrap();
         let desc_id = path.file_stem().unwrap().to_str().unwrap();
@@ -136,12 +182,16 @@ impl Descriptor {
     }
 }
 
+impl WithDescriptor for Descriptor {
+    fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Descriptor {
+        self.descriptor.push(descriptor);
+        self
+    }
+}
+
 impl WithDoc for Descriptor {
-    fn add_markdown_doc<'a>(&'a mut self, value: String) -> &'a mut Descriptor {
-        self.doc = Some(Doc {
-            format: String::from("markdown"),
-            value,
-        });
+    fn add_doc<'a>(&'a mut self, format: String, value: String) -> &'a mut Descriptor {
+        self.doc = Some(Doc { format, value });
         self
     }
 }
