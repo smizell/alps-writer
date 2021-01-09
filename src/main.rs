@@ -1,10 +1,5 @@
-// extern crate comrak;
-// use comrak::{markdown_to_html, ComrakOptions};
-// use std::collections::HashMap;
-// use std::error::Error;
-// use std::format;
-// use std::io;
-// use walkdir::WalkDir;
+#[macro_use]
+extern crate clap;
 use serde::{de, Deserialize, Serialize};
 use serde_json;
 use serde_yaml;
@@ -12,8 +7,25 @@ use std::fs;
 use std::path::Path;
 
 fn main() {
-    let profile_dir = Path::new("example/profile");
-    let alps = walk_profile::<Alps>(&profile_dir).unwrap();
+    let matches = clap_app!(alps_writer_cli =>
+        (version: "0.1")
+        (about: "Tools for writing ALPS profiles")
+        (@subcommand profile =>
+            (about: "Builds ALPS document from profile directory")
+            (@arg DIR: +required "Sets the base directory for the profile")
+        )
+    )
+    .get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("profile") {
+        let dir = matches.value_of("DIR").unwrap();
+        let profile_dir = Path::new(&dir);
+        build_profile(&profile_dir)
+    }
+}
+
+fn build_profile(path: &Path) {
+    let alps = walk_profile::<Alps>(&path).unwrap();
     let alps_document = AlpsDocument { alps };
     let s = serde_json::to_string_pretty(&alps_document).unwrap();
     println!("{}", s);
