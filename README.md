@@ -110,6 +110,10 @@ And the output of `alps-writer profile ./example/profile` is:
 }
 ```
 
+## Install
+
+Visit the latest [releases page](https://github.com/smizell/alps-writer/releases/) and download the latest for your OS. You do not need to install anything—you can directly run the binary.
+
 ## Usage
 
 Use the help for information on how to use the CLI tool.
