@@ -211,8 +211,13 @@ struct Descriptor {
 impl FromFile for Descriptor {
     fn from_file(path: &Path) -> Result<Descriptor, &'static str> {
         let mut descriptor = read_markdown_file::<Descriptor>(path).unwrap();
-        let desc_id = path.file_stem().unwrap().to_str().unwrap();
-        descriptor.id = Some(desc_id.to_string());
+
+        // This lets people overwrite the ID from the file
+        if let None = descriptor.id {
+            let desc_id = path.file_stem().unwrap().to_str().unwrap();
+            descriptor.id = Some(desc_id.to_string());
+        }
+
         Ok(descriptor)
     }
 }
