@@ -1,6 +1,6 @@
 ---
 type: safe
-rt: #contact
+rt: "#contact"
 ---
 
 A simple link/form for getting a list of contacts.

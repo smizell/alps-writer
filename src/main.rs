@@ -44,15 +44,23 @@ where
     for entry in profile_dir.read_dir().unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
+        let file_name = path.file_name().unwrap().to_str().unwrap();
 
-        let descriptor = if !path.is_dir() && path.file_name().unwrap() != "index.md" {
+        if file_name == "index.md" {
+            continue;
+        }
+
+        let descriptor = if !path.is_dir() && file_name.ends_with(".md") {
             // Local .md files
             // We processed index.md above so we can skip it
             Descriptor::from_file(&entry.path()).unwrap()
         } else if path.is_dir() {
             // Handles folders that are treated like Descriptors
-            walk_profile::<Descriptor>(&path).unwrap()
+            let mut desc_walked = walk_profile::<Descriptor>(&path).unwrap();
+            desc_walked.id = Some(path.file_name().unwrap().to_str().unwrap().to_string());
+            desc_walked
         } else {
+            println!("Ignoring {:?}", path);
             continue;
         };
 
@@ -69,19 +77,23 @@ where
     let data = fs::read_to_string(path).unwrap();
     let parts: Vec<&str> = data.split("---").collect();
 
-    // TODO: Make it work with 1 length
-    if parts.len() < 3 {
-        return Err("Can't format error");
-    }
-
-    let frontmatter = if parts[1].trim().is_empty() {
-        String::from("{}")
-    } else {
-        parts[1].to_string()
+    // This allows us to handle files with or without frontmatter along with empty frontmatter and body.
+    let (frontmatter, body) = match parts.len() {
+        1 => (String::from("{}"), parts[0].trim()),
+        3 => match parts[1].trim().is_empty() {
+            // We have to pass in something for serde_yaml, so we do {} if empty
+            true => (String::from("{}"), parts[2].trim()),
+            false => (String::from(parts[1].trim()), parts[2].trim()),
+        },
+        _ => return Err("Can't handle file format"),
     };
 
     let mut result: T = serde_yaml::from_str(&frontmatter).unwrap();
-    result.add_doc(String::from("markdown"), parts[2].trim().to_string());
+
+    if !body.is_empty() {
+        result.add_doc(String::from("markdown"), body.to_string());
+    }
+
     return Ok(result);
 }
 
@@ -114,6 +126,8 @@ struct AlpsDocument {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Alps {
+    version: String,
+
     #[serde(default = "default_descriptor")]
     descriptor: Vec<Descriptor>,
 
@@ -127,6 +141,7 @@ struct Alps {
 impl Default for Alps {
     fn default() -> Alps {
         Alps {
+            version: String::from("1.0"),
             descriptor: vec![],
             doc: None,
             link: None,
@@ -159,6 +174,8 @@ impl WithDoc for Alps {
 struct Link {
     rel: String,
     href: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -168,6 +185,8 @@ struct Descriptor {
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     rel: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     rt: Option<String>,
@@ -175,6 +194,10 @@ struct Descriptor {
     link: Option<Vec<Link>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     doc: Option<Doc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    def: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    href: Option<String>,
 
     #[serde(rename(serialize = "type"))]
     #[serde(rename(deserialize = "type"))]
