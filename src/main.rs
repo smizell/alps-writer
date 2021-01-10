@@ -119,6 +119,10 @@ fn default_descriptor_type() -> DescriptorType {
     DescriptorType::Semantic
 }
 
+fn default_version() -> String {
+    String::from("1.0")
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct AlpsDocument {
     alps: Alps,
@@ -126,6 +130,7 @@ struct AlpsDocument {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Alps {
+    #[serde(default = "default_version")]
     version: String,
 
     #[serde(default = "default_descriptor")]
