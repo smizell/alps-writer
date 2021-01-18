@@ -60,7 +60,6 @@ where
             desc_walked.id = Some(path.file_name().unwrap().to_str().unwrap().to_string());
             desc_walked
         } else {
-            println!("Ignoring {:?}", path);
             continue;
         };
 
@@ -202,6 +201,8 @@ struct Descriptor {
     def: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     href: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tag: Option<String>,
 
     #[serde(rename(serialize = "type"))]
     #[serde(rename(deserialize = "type"))]
