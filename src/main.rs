@@ -111,10 +111,6 @@ trait WithDescriptor {
     fn add_descriptor<'a>(self: &'a mut Self, descriptor: Descriptor) -> &'a mut Self;
 }
 
-fn default_descriptor() -> Vec<Descriptor> {
-    vec![]
-}
-
 fn default_descriptor_type() -> DescriptorType {
     DescriptorType::Semantic
 }
@@ -133,8 +129,8 @@ struct Alps {
     #[serde(default = "default_version")]
     version: String,
 
-    #[serde(default = "default_descriptor")]
-    descriptor: Vec<Descriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    descriptor: Option<Vec<Descriptor>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     doc: Option<Doc>,
@@ -147,7 +143,7 @@ impl Default for Alps {
     fn default() -> Alps {
         Alps {
             version: String::from("1.0"),
-            descriptor: vec![],
+            descriptor: Some(vec![]),
             doc: None,
             link: None,
         }
@@ -163,7 +159,10 @@ impl FromFile for Alps {
 
 impl WithDescriptor for Alps {
     fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Alps {
-        self.descriptor.push(descriptor);
+        match self.descriptor {
+            Some(ref mut d) => d.push(descriptor),
+            None => self.descriptor = Some(vec![descriptor])
+        }
         self
     }
 }
@@ -209,8 +208,9 @@ struct Descriptor {
     #[serde(default = "default_descriptor_type")]
     descriptor_type: DescriptorType,
 
-    #[serde(default = "default_descriptor")]
-    descriptor: Vec<Descriptor>,
+    // #[serde(default = "default_descriptor")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    descriptor: Option<Vec<Descriptor>>,
 }
 
 impl FromFile for Descriptor {
@@ -229,7 +229,10 @@ impl FromFile for Descriptor {
 
 impl WithDescriptor for Descriptor {
     fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Descriptor {
-        self.descriptor.push(descriptor);
+        match self.descriptor {
+            Some(ref mut d) => d.push(descriptor),
+            None => self.descriptor = Some(vec![descriptor])
+        }
         self
     }
 }
