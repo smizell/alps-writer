@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate clap;
+use read_input::prelude::*;
 use serde::{de, Deserialize, Serialize};
 use serde_json;
 use serde_yaml;
@@ -18,6 +19,7 @@ fn main() {
         (@subcommand descriptor =>
             (about: "Create a new descriptor")
             (@arg DESCRIPTOR_PATH: +required "Path for the new descriptor (do not add .md or trailing slash)")
+            (@arg PROMPT: --prompt -p "Prompt for frontmatter values")
         )
     )
     .get_matches();
@@ -30,7 +32,42 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("descriptor") {
         let desc_path = matches.value_of("DESCRIPTOR_PATH").unwrap();
-        create_descriptor(desc_path);
+        let mut frontmatter = vec![];
+
+        if matches.is_present("PROMPT") {
+            let prompt_name: String = input().msg("name: ").get();
+            let prompt_title: String = input().msg("title: ").get();
+            let prompt_def: String = input().msg("def: ").get();
+            let prompt_href: String = input().msg("href: ").get();
+            let prompt_rel: String = input().msg("rel: ").get();
+            let prompt_tag: String = input().msg("tag (space seperated): ").get();
+            
+            if !prompt_name.is_empty() {
+                frontmatter.push(format!("name: {}", prompt_name));
+            }
+
+            if !prompt_title.is_empty() {
+                frontmatter.push(format!("title: {}", prompt_title));
+            }
+
+            if !prompt_def.is_empty() {
+                frontmatter.push(format!("def: {}", prompt_def));
+            }
+
+            if !prompt_href.is_empty() {
+                frontmatter.push(format!("href: {}", prompt_href));
+            }
+
+            if !prompt_rel.is_empty() {
+                frontmatter.push(format!("rel: {}", prompt_rel));
+            }
+
+            if !prompt_tag.is_empty() {
+                frontmatter.push(format!("tag: {}", prompt_tag));
+            }
+        }
+
+        create_descriptor(desc_path, &frontmatter.join("\n")[..]);
     }
 }
 
@@ -41,7 +78,7 @@ fn build_profile(path: &Path) {
     println!("{}", s);
 }
 
-fn create_descriptor(desc_path: &str) {
+fn create_descriptor(desc_path: &str, frontmatter: &str) {
     let desc_dir_path = Path::new(&desc_path);
     let file_path_value = format!("{}.md", &desc_path);
     let desc_file_path = Path::new(&file_path_value);
@@ -61,7 +98,12 @@ fn create_descriptor(desc_path: &str) {
 
     if desc_dir_path.parent().unwrap().exists() {
         let mut new_descriptor_file = fs::File::create(desc_file_path).unwrap();
-        new_descriptor_file.write_all(b"---\n---\n\n").unwrap();
+        let content = if frontmatter.is_empty() {
+            "---\n---\n\n".to_string()
+        } else {
+            format!("---\n{}\n---\n\n", frontmatter)
+        };
+        new_descriptor_file.write_all(&content.as_bytes()).unwrap();
     } else {
         panic!("Parent descriptor does not exist. Please create it first.");
     }

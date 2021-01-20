@@ -5,6 +5,7 @@ name = "alps-writer"
 version = "0.1.5"
 dependencies = [
  "clap",
+ "read_input",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -101,6 +102,12 @@ checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "read_input"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b57518cc6538a2eb7dce826e24fa51d0b7cf8e744ee10c7f56259cdec40050e5"
 
 [[package]]
 name = "ryu"
