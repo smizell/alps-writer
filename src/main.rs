@@ -30,38 +30,7 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("descriptor") {
         let desc_path = matches.value_of("DESCRIPTOR_PATH").unwrap();
-
-        let desc_dir_path = Path::new(&desc_path);
-        let file_path_value = format!("{}.md", &desc_path);
-        let desc_file_path = Path::new(&file_path_value);
-
-        // check for existing directory or .md file
-        // error if either exists
-        if desc_dir_path.exists() || desc_file_path.exists() {
-            panic!("It looks like the descriptor already exists.")
-        }
-
-        // check for parent .md file
-        // if exists, convert to directory, move to index.md
-        // create new .md file for descriptor
-        // let full_desc_dir_path = profile_dir.join(desc_dir_path);
-        let parent_dir = desc_dir_path.parent().unwrap();
-        let parent_md_name = format!("{}.md", parent_dir.to_str().unwrap());
-        let parent_md_path = Path::new(&parent_md_name);
-        if parent_md_path.exists() {
-            fs::create_dir(parent_dir).unwrap();
-            fs::rename(parent_md_path, parent_dir.join("index.md")).unwrap();
-        }
-
-        // check for existing parent directory
-        // if no parent directory, error
-        // if parent directory, create new .md file
-        if desc_dir_path.parent().unwrap().exists() {
-            let mut new_descriptor_file = fs::File::create(desc_file_path).unwrap();
-            new_descriptor_file.write_all(b"---\n---\n\n").unwrap();
-        } else {
-            panic!("Parent descriptor does not exist. Please create it first.");
-        }
+        create_descriptor(desc_path);
     }
 }
 
@@ -70,6 +39,32 @@ fn build_profile(path: &Path) {
     let alps_document = AlpsDocument { alps };
     let s = serde_json::to_string_pretty(&alps_document).unwrap();
     println!("{}", s);
+}
+
+fn create_descriptor(desc_path: &str) {
+    let desc_dir_path = Path::new(&desc_path);
+    let file_path_value = format!("{}.md", &desc_path);
+    let desc_file_path = Path::new(&file_path_value);
+
+    if desc_dir_path.exists() || desc_file_path.exists() {
+        panic!("It looks like the descriptor already exists.")
+    }
+
+    // Convert to directory, move to index.md if <parent_dir>.md exists
+    let parent_dir = desc_dir_path.parent().unwrap();
+    let parent_md_name = format!("{}.md", parent_dir.to_str().unwrap());
+    let parent_md_path = Path::new(&parent_md_name);
+    if parent_md_path.exists() {
+        fs::create_dir(parent_dir).unwrap();
+        fs::rename(parent_md_path, parent_dir.join("index.md")).unwrap();
+    }
+
+    if desc_dir_path.parent().unwrap().exists() {
+        let mut new_descriptor_file = fs::File::create(desc_file_path).unwrap();
+        new_descriptor_file.write_all(b"---\n---\n\n").unwrap();
+    } else {
+        panic!("Parent descriptor does not exist. Please create it first.");
+    }
 }
 
 // fn create_descriptor()
