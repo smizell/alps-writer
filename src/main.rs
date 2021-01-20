@@ -5,6 +5,7 @@ use serde_json;
 use serde_yaml;
 use std::fs;
 use std::path::Path;
+use std::io::prelude::*;
 
 fn main() {
     let matches = clap_app!(alps_writer_cli =>
@@ -14,6 +15,10 @@ fn main() {
             (about: "Builds ALPS document from profile directory")
             (@arg DIR: +required "Sets the base directory for the profile")
         )
+        (@subcommand descriptor =>
+            (about: "Create a new descriptor")
+            (@arg DESCRIPTOR_PATH: +required "Path for the new descriptor (do not add .md)")
+        )
     )
     .get_matches();
 
@@ -21,6 +26,42 @@ fn main() {
         let dir = matches.value_of("DIR").unwrap();
         let profile_dir = Path::new(&dir);
         build_profile(&profile_dir)
+    }
+
+    if let Some(matches) = matches.subcommand_matches("descriptor") {
+        let desc_path = matches.value_of("DESCRIPTOR_PATH").unwrap();
+
+        let desc_dir_path = Path::new(&desc_path);
+        let file_path_value = format!("{}.md", &desc_path);
+        let desc_file_path = Path::new(&file_path_value);
+
+        // check for existing directory or .md file
+        // error if either exists
+        if desc_dir_path.exists() || desc_file_path.exists() {
+            panic!("It looks like the descriptor already exists.")
+        }
+
+        // check for parent .md file
+        // if exists, convert to directory, move to index.md
+        // create new .md file for descriptor
+        // let full_desc_dir_path = profile_dir.join(desc_dir_path);
+        let parent_dir = desc_dir_path.parent().unwrap();
+        let parent_md_name = format!("{}.md", parent_dir.to_str().unwrap());
+        let parent_md_path = Path::new(&parent_md_name);
+        if parent_md_path.exists() {
+            fs::create_dir(parent_dir).unwrap();
+            fs::rename(parent_md_path, parent_dir.join("index.md")).unwrap();
+        }
+
+        // check for existing parent directory
+        // if no parent directory, error
+        // if parent directory, create new .md file
+        if desc_dir_path.parent().unwrap().exists() {
+            let mut new_descriptor_file = fs::File::create(desc_file_path).unwrap();
+            new_descriptor_file.write_all(b"---\n---\n\n").unwrap();
+        } else {
+            panic!("Parent descriptor does not exist. Please create it first.");
+        }
     }
 }
 
@@ -30,6 +71,8 @@ fn build_profile(path: &Path) {
     let s = serde_json::to_string_pretty(&alps_document).unwrap();
     println!("{}", s);
 }
+
+// fn create_descriptor()
 
 fn walk_profile<T>(profile_dir: &Path) -> Result<T, &str>
 where
