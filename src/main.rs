@@ -148,10 +148,6 @@ trait WithDescriptor {
     fn add_descriptor<'a>(self: &'a mut Self, descriptor: Descriptor) -> &'a mut Self;
 }
 
-fn default_descriptor_type() -> DescriptorType {
-    DescriptorType::Semantic
-}
-
 fn default_version() -> String {
     String::from("1.0")
 }
@@ -244,8 +240,8 @@ struct Descriptor {
 
     #[serde(rename(serialize = "type"))]
     #[serde(rename(deserialize = "type"))]
-    #[serde(default = "default_descriptor_type")]
-    descriptor_type: DescriptorType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    descriptor_type: Option<DescriptorType>,
 
     // #[serde(default = "default_descriptor")]
     #[serde(skip_serializing_if = "Option::is_none")]
