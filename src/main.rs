@@ -4,8 +4,8 @@ use serde::{de, Deserialize, Serialize};
 use serde_json;
 use serde_yaml;
 use std::fs;
-use std::path::Path;
 use std::io::prelude::*;
+use std::path::Path;
 
 fn main() {
     let matches = clap_app!(alps_writer_cli =>
@@ -194,7 +194,7 @@ impl WithDescriptor for Alps {
     fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Alps {
         match self.descriptor {
             Some(ref mut d) => d.push(descriptor),
-            None => self.descriptor = Some(vec![descriptor])
+            None => self.descriptor = Some(vec![descriptor]),
         }
         self
     }
@@ -252,10 +252,13 @@ impl FromFile for Descriptor {
     fn from_file(path: &Path) -> Result<Descriptor, &'static str> {
         let mut descriptor = read_markdown_file::<Descriptor>(path).unwrap();
 
-        // This lets people overwrite the ID from the file
-        if let None = descriptor.id {
-            let desc_id = path.file_stem().unwrap().to_str().unwrap();
-            descriptor.id = Some(desc_id.to_string());
+        let file_name = path.file_stem().unwrap().to_str().unwrap();
+
+        if !file_name.starts_with("_") {
+            // This lets people overwrite the ID from the file
+            if let None = descriptor.id {
+                descriptor.id = Some(file_name.to_string());
+            }
         }
 
         Ok(descriptor)
@@ -266,7 +269,7 @@ impl WithDescriptor for Descriptor {
     fn add_descriptor<'a>(&'a mut self, descriptor: Descriptor) -> &'a mut Descriptor {
         match self.descriptor {
             Some(ref mut d) => d.push(descriptor),
-            None => self.descriptor = Some(vec![descriptor])
+            None => self.descriptor = Some(vec![descriptor]),
         }
         self
     }
