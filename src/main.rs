@@ -17,7 +17,7 @@ fn main() {
         )
         (@subcommand descriptor =>
             (about: "Create a new descriptor")
-            (@arg DESCRIPTOR_PATH: +required "Path for the new descriptor (do not add .md)")
+            (@arg DESCRIPTOR_PATH: +required "Path for the new descriptor (do not add .md or trailing slash)")
         )
     )
     .get_matches();

@@ -6,6 +6,8 @@ ALPS writer is a tool for writing ALPS profiles in Markdown files.
 - It uses the YAML frontmatter in the Markdown files as the attributes for the descriptors
 - It uses the body of the Markdown files as the documentation for the descriptor
 - It uses the name of the Markdown file as the ID of the descriptor
+- It overwrites the ID with the ID in the frontmatter if it exists
+- It ignores the ID if the file name starts with an underscore
 - It uses the `index.md` of a directory to define the definition for a descriptor with nested descriptors
 
 Look at the `example/profile` directory for an example of how this works. It's structure is:
@@ -29,42 +31,16 @@ And the output of `alps-writer profile ./example/profile` is:
 ```js
 {
   "alps": {
-    "doc": {
-      "format": "markdown",
-      "value": "A contact list."
-    },
-    "link": [
-      {
-        "rel": "help",
-        "href": "http://example.org/help/contacts.html"
-      }
-    ],
+    "version": "1.0",
     "descriptor": [
       {
-        "id": "index",
-        "doc": {
-          "format": "markdown",
-          "value": ""
-        },
-        "type": "semantic",
+        "id": "contact",
         "descriptor": [
           {
-            "id": "email",
-            "doc": {
-              "format": "markdown",
-              "value": ""
-            },
-            "type": "semantic",
-            "descriptor": []
+            "id": "email"
           },
           {
-            "id": "fullName",
-            "doc": {
-              "format": "markdown",
-              "value": ""
-            },
-            "type": "semantic",
-            "descriptor": []
+            "id": "fullName"
           },
           {
             "id": "item",
@@ -72,22 +48,16 @@ And the output of `alps-writer profile ./example/profile` is:
               "format": "markdown",
               "value": "A link to an individual contact."
             },
-            "type": "safe",
-            "descriptor": []
+            "type": "safe"
           },
           {
-            "id": "phone",
-            "doc": {
-              "format": "markdown",
-              "value": ""
-            },
-            "type": "semantic",
-            "descriptor": []
+            "id": "phone"
           }
         ]
       },
       {
-        "id": "index",
+        "id": "collection",
+        "rt": "#contact",
         "doc": {
           "format": "markdown",
           "value": "A simple link/form for getting a list of contacts."
@@ -99,15 +69,24 @@ And the output of `alps-writer profile ./example/profile` is:
             "doc": {
               "format": "markdown",
               "value": "Input for a search form."
-            },
-            "type": "semantic",
-            "descriptor": []
+            }
           }
         ]
+      }
+    ],
+    "doc": {
+      "format": "markdown",
+      "value": "A contact list."
+    },
+    "link": [
+      {
+        "rel": "help",
+        "href": "http://example.org/help/contacts.html"
       }
     ]
   }
 }
+
 ```
 
 ## Install
